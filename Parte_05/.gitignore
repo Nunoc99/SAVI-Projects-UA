@@ -1,0 +1,6 @@
+# Faces folder
+faces/*
+Audio/*
+__pycache__
+
+!README.md

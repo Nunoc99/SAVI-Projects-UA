@@ -74,7 +74,7 @@ class Detection():
         cv2.putText(image, text, txt_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
 
         # Draw center dot
-        # cv2.line(image, (self.cx, self.cy), (self.cx, self.cy), color, 3)
+        cv2.line(image, (self.cx, self.cy), (self.cx, self.cy), color, 3)
     
     def getLowerMiddlePoint(self):
         return (self.left + int((self.right - self.left)/2) , self.bottom)
@@ -90,9 +90,7 @@ class Track():
         self.detections = [detection]
         self.active = True
         self.unknown = detection.unknown
-        self.called = False
 
-        
         print('Starting constructor for track id ' + str(self.track_name) + ' from det. name ' + detection.detection_name)
 
     def draw(self, image):

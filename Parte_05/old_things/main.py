@@ -3,8 +3,8 @@
 # Authors:  José Silva, Mário Vasconcelos, Nuno Cunha
 # Nmec:     103268, 84081, 95167
 # Email:    josesilva8@ua.pt, mario.vasconcelos@ua.pt, nunocunha99@ua.pt
-# Version:  1.6
-# Date:     30/10/2023
+# Version:  1.2
+# Date:     28/10/2023
 
 import cv2
 import numpy as np
@@ -23,7 +23,6 @@ from colorama import Fore, Style
 from collections import namedtuple
 from faceRecog import *
 from track import *
-from txtts import * 
 
 
 # Definição de Argumentos/help menu
@@ -38,15 +37,9 @@ args = parser.parse_args()
 today = date.today()
 today_date = today.strftime("%B %d, %Y")
 
-# def w_text(image, text, pos):
-#     cv2.putText(image, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1, cv2.LINE_AA)
-def w_text(image, text, pos, font=cv2.FONT_HERSHEY_SIMPLEX, font_scale=1,font_thickness=1):
-    text_size , _ = cv2.getTextSize(text , font, font_scale*0.5 , font_thickness)
-    text_w, text_h = text_size
-    x,y=pos
-    y1= y-2
-    cv2.rectangle(image,(x,y1), (x + text_w + 1, y + text_h+5), (0,255,0),-1)
-    cv2.putText(image, text, (x, y + text_h + font_scale - 1), font, font_scale*0.5, (0,0,0), font_thickness, cv2.LINE_AA)   
+def w_text(image, text, pos):
+    cv2.putText(image, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1, cv2.LINE_AA)
+     
 # -----------------------------------------------------------------------------------------------------------------------------------
 # -------------------------------------------------------- COLLECT DATA AREA --------------------------------------------------------
 # ------------------------------------------------------------- DONE! ---------------------------------------------------------------
@@ -229,6 +222,8 @@ def collect_data():
                         cv2.imwrite(image_path, face_image)
                         print("Your frontal picture was saved with success in " + data_dir)
                         cv2.imshow("Captured_Face", face_image)
+                        cv2.waitKey() 
+                        cv2.destroyWindow("Captured_Face")
                         break
 
                     else:
@@ -269,10 +264,9 @@ def face_detection():
     print("-----------------Key Commands Menu---------------------\n")
     print("Press " + Fore.GREEN + "'p'", Style.RESET_ALL + "to pause the image.\n")
     print("Press " + Fore.GREEN + "'q'", Style.RESET_ALL + "to exit the program.\n")
-    print("Press " + Fore.GREEN + "'d'", Style.RESET_ALL + "to clear the image and audio database.\n")
-    print("Press " + Fore.GREEN + "'r'", Style.RESET_ALL + "to recognize unknown people.\n")
+    print("Press " + Fore.GREEN + "'c'", Style.RESET_ALL + "to close the windows of the images from the data base.\n")
     print("-------------------------------------------------------\n")
-    print(Fore.YELLOW + "\nSmile, you're being watched. *wink* *wink*\n", Style.RESET_ALL)
+    print(Fore.YELLOW + "\nSmile, you're being watched. *wink* *wink*)\n", Style.RESET_ALL)
 
 
     # ----------------------------------------------------------------------------------------
@@ -283,34 +277,20 @@ def face_detection():
     deactivate_threshold = 8.0 # secs
     delete_threshold = 2.0 # secs
     iou_threshold = 0.3
-    pad_fc = 0.85
-    tts_interval = 2
-    faces_dir = 'faces'
-    audio_dir = 'Audio'
-  
+    pad_fc = 0.75
 
     video_frame_number = 0
     face_counter = 0
-    previous_tts=0
     tracks = []
-
-    # Delete all Audio in the 'Audio' folder
-    if not os.path.isdir(audio_dir):
-        os.makedirs(audio_dir)
-    for filename in os.listdir(audio_dir):
-        if filename.endswith('.mp3'):
-            file_path = os.path.join(audio_dir, filename)
-            os.remove(file_path)
-
-    # Load web camera    
-    cap = cv2.VideoCapture(0)
 
     # Load the faceRecog features
     fr = FaceRecognition()
 
+    # Load web camera    
+    cap = cv2.VideoCapture(0)
+
     # Load images from the "faces" folder
-    if not os.path.isdir(faces_dir):
-        os.makedirs(faces_dir)
+    faces_dir = 'faces'
     face_images = [os.path.join(faces_dir, filename) for filename in os.listdir(faces_dir) if filename.endswith('.jpg')]
     face_image_windows = {}
     for face_image_path in face_images:
@@ -326,16 +306,11 @@ def face_detection():
         all_known_people.append(name[0])
 
     all_known_people = list(dict.fromkeys(all_known_people))
-    #print('Known people: ' + str(all_known_people))
-
-    # Create audio file
-    for people in all_known_people:
-        text_to_speech(people, language='pt')
-        
+    print('Known people: ' + str(all_known_people))
 
     # Create a dictionary to keep track of whether each window is open
     window_open = {filename: True for filename in face_image_windows}
-    
+
     while (cap.isOpened()):
 
         ret, image_rgb = cap.read()
@@ -350,9 +325,11 @@ def face_detection():
         # Resize frame
         image_scale = 0.25
         image_gui_lowres = cv2.resize(image_gui, (0,0), fx=image_scale, fy=image_scale)
-
+        image_gray_lowres = cv2.resize(image_gray, (0,0), fx=image_scale, fy=image_scale)
         h, w, _ = image_gui.shape
 
+
+        
         if FaceRecognition.process_current_frame:   
             # Detect all frame faces
             FaceRecognition.face_locations = face_recognition.face_locations(image_gui_lowres)
@@ -369,17 +346,15 @@ def face_detection():
                 matches = face_recognition.compare_faces(FaceRecognition.known_face_encodings, face_encoding)
                     
                 # Face's Initial values
-                name = 'Unknown'
-                unknown = True
+                name = 'Unknown' + str(face_counter)
                 accuracy = 0
+                unknown = True
     
                 if all_known_people:
-                    try:
-                        face_distances = face_recognition.face_distance(FaceRecognition.known_face_encodings, face_encoding)
-                        best_match_index = np.argmin(face_distances)
-                    except:
-                        print('Database image NOK!')
-                        exit(0)
+
+                    face_distances = face_recognition.face_distance(FaceRecognition.known_face_encodings, face_encoding)
+                    best_match_index = np.argmin(face_distances)
+               
                     if matches[best_match_index]:
                         name_with_ext = FaceRecognition.known_face_names[best_match_index]
                         name = name_with_ext.split('_')[0]
@@ -397,7 +372,7 @@ def face_detection():
         # ---------------------------------------------------------------------------------
         detections = []
         detection_idx = 0
-        for (top, right, bottom, left), name, unknown, accuracy in zip(FaceRecognition.face_locations, FaceRecognition.face_names, FaceRecognition.face_unknown,  FaceRecognition.face_accuracy):      
+        for (top, right, bottom, left), name, unknown in zip(FaceRecognition.face_locations, FaceRecognition.face_names, FaceRecognition.face_unknown):      
             
             # Image scale compensation
             top    *= int(1/image_scale)
@@ -408,15 +383,11 @@ def face_detection():
             # print(str(left) + ',' + str(right) + ',' + str(top) + ',' + str(bottom))
             
             detection_id = 'D'+ str(video_frame_number) + '_' + str(detection_idx)
+            detection_name = str(name)
             detection_unknown = unknown
-            if unknown:
-                detection_name = 'Unkown' + str(detection_idx)
-            else:
-                detection_name = str(name)
             detection = Detection(left,right,top,bottom,detection_id,detection_name,detection_unknown,frame_stamp, image_gray)
             detections.append(detection)
             detection_idx += 1
-            # print(name + '('+ str(accuracy)+')')
         all_detections = copy.deepcopy(detections)          
                        
         # ------------------------------------------------------
@@ -425,24 +396,21 @@ def face_detection():
         idxs_detections_to_remove = []
         active_detections = []
         for idx_detection, detection in enumerate(detections):
-                
-            # Check if detection is leaving the frame
-            if     ((detection.left   < w*pad_fc)    or 
-                    (detection.right  > w-w*pad_fc)  or
-                    (detection.top    < h*pad_fc)    or 
-                    (detection.bottom > h-h*pad_fc)):
-                idxs_detections_to_remove.append(idx_detection)
-                continue
-                
             active_detections.append(detection.detection_name)
 
             for track in tracks:  
                 #If track is not active,do nothing;
                 if not track.active:
                     continue
- 
+                
+                # # Avoid attaching a known person to an unknown track   
+                # if (detection.unknown == False) and (track.unknown == True):
+                #     print('2nd option ('+str(track.track_name)+')')
+                #     idxs_detections_to_remove.append(idx_detection)
+                #     break
+
                 # Attach detections and tracker with the same name
-                if (detection.detection_name == track.track_name) and (not detection.unknown):
+                if (detection.detection_name == track.track_name):
                     track.update(detection)
                     idxs_detections_to_remove.append(idx_detection)
                     break 
@@ -454,12 +422,11 @@ def face_detection():
                     if (detection.unknown == False) and (track.unknown == True): 
                         # Update the unknonw tracker with face data
                         track.track_name = detection.detection_name
-                        track.unknown = True
+                        track.known = True
                         idxs_detections_to_remove.append(idx_detection)
                         break
                     else:
                         # Just update the tracker
-                        track.track_name = detection.detection_name
                         track.update(detection) # add detection to track
                         idxs_detections_to_remove.append(idx_detection)
                         break 
@@ -476,13 +443,15 @@ def face_detection():
             color = (randint(0, 255), randint(0, 255), randint(0, 255))
             track = Track('T_'+str(face_counter), detection, color=color)
             tracks.append(track)
+            face_counter += 1
                 
         # --------------------------------------
         # Deactivate or eliminate tracks if last detection has been seen a long time ago
         # --------------------------------------
         idx_tracks_to_delete = []
         for idx_track, track in enumerate(tracks):
-        
+            
+   
              # Check if detection is leaving the frame
             if    (((track.detections[-1].left   < w*pad_fc)    or 
                     (track.detections[-1].right  > w-w*pad_fc)  or
@@ -490,7 +459,7 @@ def face_detection():
                     (track.detections[-1].bottom > h-h*pad_fc)) and
                     (track.active == True))                          :
                         track.active = False
-                        # print(track.track_name + ' left the room.')
+                        print(track.track_name + ' left the room.')
                         
             time_since_last_detection = frame_stamp - track.detections[-1].stamp
             # Delete unknown tracks to avoid visual trash (common with bad detections)
@@ -517,20 +486,7 @@ def face_detection():
                 # Track detection using template matching
                 track.track_template(image_gray, video_frame_number, frame_stamp)
 
-        #----------------------------------------------------------------------------------------
-        # Text to Speech
-        #----------------------------------------------------------------------------------------
-        # Timer with no sleep
-        if (frame_stamp - previous_tts) >= tts_interval:
-            previous_tts = frame_stamp
-
-            for track in tracks :
-                if (track.called == False and track.unknown == False):
-
-                    txt_speech(track.track_name)
-                    track.called = True
-                    print('Hello ' + str(track.track_name))
-                    break
+                    
 
         # ----------------------------------------------------------------------------------------
         # Visualization
@@ -549,15 +505,7 @@ def face_detection():
         # Add frame number and time to top left corner
         w_text(image_gui, 'Frame ' + str(video_frame_number), (10,20) )
         w_text(image_gui, 'Time ' + str(frame_stamp) + ' s',(10,45))
-        
-        w_text(image_gui, 'FPS ' + str(frame_stamp/video_frame_number) + ' s',(10,65))
-
-                
-        # Show all known peolpe
-        w_text(image_gui, 'All Known People: ' + str(all_known_people),(10,h-80))  
-
-        #Show active detections
-        w_text(image_gui, 'Active Detections: ' + str(active_detections),(10,h-40))  
+        w_text(image_gui, '_____________', (10,55))
 
 
         #Show active tracks
@@ -565,7 +513,13 @@ def face_detection():
         for idx, track in enumerate(tracks):
             if track.active:
                 active_tracks.append(track.track_name)
-        w_text(image_gui, 'Active tracks: ' +str(active_tracks),(10,h-20))      
+        w_text(image_gui, 'Active tracks: ' +str(active_tracks),(10,h-10))      
+
+        #Show active detections
+        w_text(image_gui, 'Active Detections: ' + str(active_detections),(10,h-30))  
+        
+        # Show all known peolpe
+        w_text(image_gui, 'Known People: ' + str(all_known_people),(10,h-50))  
 
         # Show missing people
         missing_people = []
@@ -574,7 +528,7 @@ def face_detection():
                 pass
             else:
                 missing_people.append(people)
-        w_text(image_gui, 'Missing People: ' + str(missing_people),(10,h-60)) 
+        w_text(image_gui, 'Missing People: ' + str(missing_people),(10,h-70)) 
 
         # Show leaving frame box
         pad_fc = 0.05
@@ -583,7 +537,7 @@ def face_detection():
         cv2.rectangle(image_gui,track_rect_sp,track_rect_ep,(255,128,0),1)
 
 
-        # Show subplot for DB
+        ##################### ALTERAÇÃO PARA VER A BASE DE DADOS EM SUBPLOT #####################
 
         # Check if the "faces" folder contains pictures
         if not os.path.exists(faces_dir):
@@ -591,15 +545,14 @@ def face_detection():
         else:
             files_in_faces = [f for f in os.listdir(faces_dir) if f.endswith('.jpg')]
             if len(files_in_faces) > 0:
-                #print("Found pictures in the 'faces' folder. Displaying...")
-                # Create an empty canvas to display images in a gri
+                print("Found pictures in the 'faces' folder. Displaying...")
 
+                # Create an empty canvas to display images in a grid
                 num_images = len(files_in_faces)
-                num_cols = num_images  # You can adjust the number of columns in the subplot
-
+                num_cols = 3  # You can adjust the number of columns in the subplot
                 num_rows = math.ceil(num_images / num_cols)
-                subplot_width = 200 * num_cols  # You can adjust the width of the subplot
-                subplot_height = 200   # You can adjust the height of the subplot
+                subplot_width = 600  # You can adjust the width of the subplot
+                subplot_height = 200  # You can adjust the height of the subplot
                 subplot = np.zeros((subplot_height, subplot_width, 3), dtype=np.uint8)
 
                 for i, filename in enumerate(face_image_windows):
@@ -609,64 +562,47 @@ def face_detection():
 
                         face_image = cv2.resize(face_image_windows[filename], (subplot_width // num_cols, subplot_height // num_rows))
                         subplot[y_offset:y_offset + subplot_height // num_rows, x_offset:x_offset + subplot_width // num_cols] = face_image
-                        w_text(subplot, filename, (x_offset, y_offset+10))
 
-                cv2.imshow("Faces Database", subplot)
-                cv2.moveWindow("Faces Database", 1000,50)
+                cv2.imshow("Faces Subplot", subplot)
+            else:
+                print("There are no pictures in the 'faces' folder.")
 
+        ##################### ALTERAÇÃO PARA VER A BASE DE DADOS EM SUBPLOT #####################
 
         # # Display the webcam
         # cv2.moveWindow("Frame", 1200, 100)
         cv2.imshow('Frame', image_gui)
+        
 
         k = cv2.waitKey(1) & 0xFF
 
         # Stop image processing
         if k == ord('q'):
-            exit(0)
+            break
 
         # Stop recording    
         if k == ord('p'):
             cv2.waitKey(-1)
 
-        # Delete all the pictures from the datase
-        if k == ord('d'): 
+        if k == ord('c'): # press 'c' to close the windows of the images from the data base
+            for filename in face_image_windows:
+                if window_open[filename]:
+                    cv2.destroyWindow(filename)
+                    window_open[filename] = False
 
+        ##################### ALTERAÇÃO PARA APAGAR A BASE DE DADOS #####################
+
+        if k == ord('d'): # press 'd' to delete all the pictures from the datab ase
             # Delete all images in the 'faces' folder
             for filename in os.listdir(faces_dir):
                 if filename.endswith('.jpg'):
                     file_path = os.path.join(faces_dir, filename)
                     os.remove(file_path)
-            cap.release()
-            cv2.destroyAllWindows()    
-            return
-        # Know people
-        if k == ord('r'):
+            print("All pictures in the 'faces' folder have been deleted.")
 
-            print('Name unknown people')
+        ##################### ALTERAÇÃO PARA APAGAR A BASE DE DADOS #####################
+                
 
-            for track in tracks:
-                if track.unknown and track.active:
-                    while True:  # make sure that the user writes a valid name
-                        face_name = input(track.track_name +' name: ')
-
-                        if re.match("^[A-Za-z0-9]+$", face_name):
-                            face_name += '_frontal.jpg'
-
-                            image_rgb_flipped = cv2.flip(image_rgb,1)
-                            detect_pad = 40
-                            face_image = image_rgb_flipped[track.detections[-1].top-detect_pad: track.detections[-1].bottom+detect_pad, track.detections[-1].left-detect_pad: track.detections[-1].right+detect_pad ]
-                            image_path = os.path.join(faces_dir, face_name)
-                            cv2.imwrite(image_path, face_image)
-                            break
-                        else:
-                            print("Invalid input. Please use only letters and numbers with no spaces or enters.")
-
-            print('All faces have names!') 
-            cap.release()
-            cv2.destroyAllWindows()    
-            return
-        
         # Update frame number
         video_frame_number += 1
 
@@ -680,10 +616,9 @@ def main():
         face_detection()
     else:
         print("Define your arguments or type -h for help")
-        exit(0)
+
 
 
 
 if __name__ == "__main__":
-    while True:
-        main()
+    main()

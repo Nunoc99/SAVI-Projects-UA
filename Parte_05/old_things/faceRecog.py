@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-
+import cv2
 import numpy as np
 import os 
 import face_recognition
+import sys
 import math
 
 
-def face_accuracy(face_distance, face_match_threshold = 0.85):
+def face_accuracy(face_distance, face_match_threshold = 0.6):
     range = (1.0 - face_match_threshold)
     lin_val = (1.0 - face_distance) / (range * 2.0)
 
@@ -26,25 +27,12 @@ class FaceRecognition():
     known_face_encodings = []
     known_face_names = []
     process_current_frame = True
-    face_accuracy = []
-    face_unknown = []
 
 
     def __init__(self):
         self.encode_faces()
 
-    def reset(self):
-        face_locations = []
-        face_encodings = []
-        face_names = []
-        known_face_encodings = []
-        known_face_names = []
-        process_current_frame = True
-        face_accuracy = []
-        face_unknown = []
 
-        self.encode_faces()
-        
     def encode_faces(self):
         for image in os.listdir('faces'):
             
@@ -59,7 +47,7 @@ class FaceRecognition():
                 print(f"Error: Failed to encode faces in the image {image}. Skipping it.")
 
 
-        # print(self.known_face_names)
+        print(self.known_face_names)
 
 
 
