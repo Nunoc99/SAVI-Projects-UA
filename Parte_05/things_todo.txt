@@ -1,0 +1,12 @@
+TODO: colocar um if caso não tenha imagens na pasta
+TODO: limitar o tamanho da imagem do template
+TODO: tirar jpeg do nome do identificado
+TODO: no modo de recolher data, identificar a cara automaticamente, mas aumentar o cv2.rectangle, pescoço até início do cabelo
+TODO: para dar save, if readkey('s') -> cv2.imwrite e pedir ao user para colocar um nome, mas guarda sp no mm sítio
+
+CDM - inclui face detection mas não inclui face recognition
+FDM - inclui face detection, face recognition, tracking e text to speech
+
+
+IMPROVE FDM:
+- 
